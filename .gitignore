@@ -19,3 +19,6 @@ crash.log
 
 # macOS
 .DS_Store
+
+# JetBrains
+.idea/
