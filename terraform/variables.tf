@@ -4,6 +4,17 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
+variable "runtime_trusted_principal_arn" {
+  description = "IAM principal permitted to assume the job tracker runtime role."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^arn:aws:iam::[0-9]{12}:user/.+$", var.runtime_trusted_principal_arn))
+    error_message = "runtime_trusted_principal_arn must be a valid IAM user ARN."
+  }
+}
+
 variable "project_name" {
   description = "Lowercase name used to identify project resources."
   type        = string
