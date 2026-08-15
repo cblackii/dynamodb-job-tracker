@@ -22,3 +22,5 @@ crash.log
 
 # JetBrains
 .idea/
+
+*.egg-info/
