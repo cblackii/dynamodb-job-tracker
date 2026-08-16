@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 from uuid import uuid4
 
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 from job_tracker.domain import (
@@ -31,6 +32,12 @@ class DynamoDBTable(Protocol):
 
     def update_item(self, **kwargs: Any) -> dict[str, Any]:
         """Update an existing item."""
+
+    def query(self, **kwargs: Any) -> dict[str, Any]:
+        """Query items through an index."""
+
+    def delete_item(self, **kwargs: Any) -> dict[str, Any]:
+        """Delete an item."""
 
 
 def _utc_now() -> datetime:
@@ -160,3 +167,42 @@ class JobRepository:
             raise
 
         return cast(JobItem, response["Attributes"])
+
+    def list_recent_jobs(
+        self,
+        team_id: str,
+        *,
+        limit: int = 20,
+    ) -> list[JobItem]:
+        """Return a team's newest jobs using the team history index."""
+        if not team_id.strip():
+            raise ValueError("team_id cannot be empty")
+
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+
+        response = self._table.query(
+            IndexName="TeamJobsIndex",
+            KeyConditionExpression=Key("team_id").eq(team_id.strip()),
+            ScanIndexForward=False,
+            Limit=limit,
+        )
+
+        return cast(list[JobItem], response.get("Items", []))
+
+    def delete_job(self, job_id: str) -> JobItem | None:
+        """Delete one job and return its previous contents."""
+        if not job_id.strip():
+            raise ValueError("job_id cannot be empty")
+
+        response = self._table.delete_item(
+            Key={"job_id": job_id.strip()},
+            ReturnValues="ALL_OLD",
+        )
+
+        item = response.get("Attributes")
+
+        if item is None:
+            return None
+
+        return cast(JobItem, item)
